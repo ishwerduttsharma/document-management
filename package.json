@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "migrate": "npx drizzle-kit generate && npx drizzle-kit migrate || echo 'Skipping already existing tables/enums'"
+    "migrate": "npx drizzle-kit generate && npx drizzle-kit migrate || echo 'Skipping already existing tables/enums'",
+    "load-test": "ts-node test/document-upload.load-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
@@ -31,12 +32,15 @@
     "@nestjs/swagger": "^11.0.6",
     "@types/pg": "^8.11.11",
     "@wavezync/nestjs-pgboss": "^4.0.1",
+    "axios": "^1.8.2",
     "bcryptjs": "^3.0.2",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.40.0",
+    "form-data": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
     "nestjs-cls": "^5.4.0",
+    "p-map": "^7.0.3",
     "pg": "^8.13.3",
     "pg-boss": "^10.1.6",
     "pnpm": "^10.5.2",
