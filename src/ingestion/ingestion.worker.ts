@@ -37,7 +37,8 @@ export class IngestionWorker {
       try {
         const res = await this.mockservice.processDocument(filePath, fileId);
         if (!res || res?.status !== 200) {
-          continue;
+          await this.ingestionService.update(ingestionId, QueueStatus.FAILED);
+          throw new Error(`File id ${fileId} data ingestion failed`);
         }
         await this.ingestionService.update(ingestionId, QueueStatus.COMPLETED);
 
