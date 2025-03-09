@@ -118,6 +118,13 @@ export class UserService {
   }
 
   async update(userId: string, updateUserDto: UpdateUserDto) {
+    const [userExistOrNot] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    if (!userExistOrNot) {
+      throw new NotFoundException('User not found');
+    }
     try {
       await this.db.update(users).set({ name: updateUserDto.name });
       return {

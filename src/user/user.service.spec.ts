@@ -157,7 +157,14 @@ describe('UserService', () => {
 
   describe('update', () => {
     it('should update user details', async () => {
-      // Correctly mock update function
+      // Mock user existence check
+      mockDb.select.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValueOnce([{ id: '123' }]), // Simulating user exists
+        }),
+      });
+
+      // Mock update function
       mockDb.update.mockReturnValue({
         set: jest.fn().mockResolvedValueOnce([]), // Simulating update success
       });
@@ -170,10 +177,35 @@ describe('UserService', () => {
         status: 201,
       });
 
+      expect(mockDb.select).toHaveBeenCalled();
       expect(mockDb.update).toHaveBeenCalled();
     });
 
+    it('should throw NotFoundException if user does not exist', async () => {
+      // Mock user not found
+      mockDb.select.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValueOnce([]), // No user found
+        }),
+      });
+
+      await expect(service.update('123', { name: 'New Name' })).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled(); // Ensure update is not attempted
+    });
+
     it('should throw InternalServerErrorException on update failure', async () => {
+      // Mock user existence check
+      mockDb.select.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValueOnce([{ id: '123' }]), // Simulating user exists
+        }),
+      });
+
+      // Mock update failure
       mockDb.update.mockReturnValue({
         set: jest.fn().mockImplementationOnce(() => {
           throw new Error('DB error'); // Simulate database error
@@ -183,6 +215,9 @@ describe('UserService', () => {
       await expect(service.update('123', { name: 'New Name' })).rejects.toThrow(
         InternalServerErrorException,
       );
+
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled();
     });
   });
 
