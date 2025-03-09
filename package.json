@@ -19,7 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate": "npx drizzle-kit generate && npx drizzle-kit migrate || echo 'Skipping already existing tables/enums'",
-    "load-test": "ts-node test/document-upload.load-test.ts"
+    "load-test": "ts-node test/document-upload.load-test.ts",
+    "test:user": "jest user.service.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
