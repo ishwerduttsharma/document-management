@@ -94,15 +94,12 @@ export class UserService {
   async findAllUsersByEmail(userId: string, payload: UserPaginationDto) {
     let usersList = new Array({});
     try {
-      let limit = payload?.limit ? payload?.limit : 20;
-      if (limit > 100) limit = 100;
-      const skip = payload?.pageNumber ? (payload?.pageNumber - 1) * limit : 0;
+      const limit = 20;
       const email = payload.email;
       usersList = await this.db
         .select({ id: users.id, email: users.email, name: users.name })
         .from(users)
         .where(and(ilike(users.email, `%${email}%`), ne(users.id, userId))) // Case-insensitive search
-        .offset(skip)
         .limit(limit);
     } catch (error) {
       throw new InternalServerErrorException({

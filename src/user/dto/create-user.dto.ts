@@ -24,7 +24,7 @@ export class CreateUserDto {
   password: string;
 }
 
-export class UserPaginationDto extends Pagination {
+export class UserPaginationDto {
   @ApiPropertyOptional({
     example: 'john@example.com',
     description: 'Filter users by email',
