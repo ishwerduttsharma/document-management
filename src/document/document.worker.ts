@@ -15,7 +15,7 @@ export interface DeleteJobData {
 
 import { Job, PgBossService } from '@wavezync/nestjs-pgboss';
 import { JobWithMetadata } from 'pg-boss';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import { DocumentService } from './document.service';
 import { QueueStatus } from 'src/lib/common';
@@ -34,56 +34,72 @@ export class UploadWorker {
 
   @Job('uploadFile')
   async handleMyJob(jobs: JobWithMetadata<UploadJobData>[]) {
-    for (const job of jobs) {
-      if (!jobs || !job.data) {
-        console.error('Received undefined job');
-        return;
-      }
-
-      console.log(`Processing file: ${job.data.fileName}`);
-
-      const { fileId, fileData, fileName, bucket } = job.data;
-
-      try {
-        await fs.mkdir(bucket, { recursive: true });
-        const filePath = path.join(
-          bucket,
-          `${fileId}.${fileName.split('.').pop()}`,
-        );
-        await fs.writeFile(filePath, Buffer.from(String(fileData), 'base64'));
-
-        await this.documentService.updateStatus(fileId, QueueStatus.COMPLETED);
-        console.log(`File ${fileName} uploaded successfully`);
-
-        //emit ingest job
-
-        const ingestionType = 'ingestDoc';
-        const isIngestionActive =
-          await this.ingestionService.findStatusOfIngestionType(ingestionType);
-        if (isIngestionActive) {
-          const ingestionRoutes =
-            await this.ingestionService.findAllIngestionRouteOfIngestionType(
-              ingestionType,
-            );
-          for (const ingestionRoute of ingestionRoutes) {
-            const ingestionId = await this.ingestionService.create(
-              fileId,
-              ingestionRoute.ingestionRouteManageId,
-            );
-
-            await this.pgBossService.scheduleJob('ingestDoc', {
-              fileId,
-              filePath,
-              ingestionId,
-            });
-          }
-        }
-      } catch (error) {
-        console.log(`File ${fileName} upload failed`);
-        console.log(error.message);
-        await this.documentService.updateStatus(fileId, QueueStatus.FAILED);
-      }
+    if (!jobs?.length) {
+      console.error('Received undefined or empty job batch');
+      return;
     }
+
+    await Promise.allSettled(
+      jobs.map(async (job) => {
+        if (!job?.data) return;
+
+        console.log(`Processing file: ${job.data.fileName}`);
+        const { fileId, fileData, fileName, bucket } = job.data;
+
+        try {
+          // Ensure the directory exists
+          await fs.mkdir(bucket, { recursive: true });
+
+          const filePath = path.join(
+            bucket,
+            `${fileId}.${fileName.split('.').pop()}`,
+          );
+          const buffer = Buffer.from(fileData, 'base64'); // Convert once
+
+          // Write file asynchronously
+          await fs.writeFile(filePath, buffer);
+
+          await this.documentService.updateStatus(
+            fileId,
+            QueueStatus.COMPLETED,
+          );
+          console.log(`File ${fileName} uploaded successfully`);
+
+          // Emit ingestion job
+          await this.handleIngestion(fileId, filePath);
+        } catch (error) {
+          console.error(`File ${fileName} upload failed:`, error.message);
+          await this.documentService.updateStatus(fileId, QueueStatus.FAILED);
+        }
+      }),
+    );
+  }
+
+  private async handleIngestion(fileId: string, filePath: string) {
+    const ingestionType = 'ingestDoc';
+    const isIngestionActive =
+      await this.ingestionService.findStatusOfIngestionType(ingestionType);
+    if (!isIngestionActive) return;
+
+    const ingestionRoutes =
+      await this.ingestionService.findAllIngestionRouteOfIngestionType(
+        ingestionType,
+      );
+
+    await Promise.allSettled(
+      ingestionRoutes.map(async (ingestionRoute) => {
+        const ingestionId = await this.ingestionService.create(
+          fileId,
+          ingestionRoute.ingestionRouteManageId,
+        );
+        this.pgBossService.scheduleJob('ingestDoc', {
+          fileId,
+          filePath,
+          ingestionId,
+          route: ingestionRoute.route,
+        });
+      }),
+    );
   }
 }
 

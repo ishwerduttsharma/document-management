@@ -2,6 +2,7 @@ export interface IngestJobData {
   fileId: string;
   filePath: string;
   ingestionId: string;
+  route: string;
 }
 
 import { Job } from '@wavezync/nestjs-pgboss';
@@ -32,10 +33,14 @@ export class IngestionWorker {
 
       console.log(`Processing file: ${job.data.fileId}`);
 
-      const { fileId, filePath, ingestionId } = job.data;
+      const { fileId, filePath, ingestionId, route } = job.data;
 
       try {
-        const res = await this.mockservice.processDocument(filePath, fileId);
+        const res = await this.mockservice.processDocument(
+          filePath,
+          fileId,
+          route,
+        );
         if (!res || res?.status !== 200) {
           await this.ingestionService.update(ingestionId, QueueStatus.FAILED);
           throw new Error(`File id ${fileId} data ingestion failed`);

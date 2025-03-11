@@ -6,7 +6,7 @@ import pMap from 'p-map';
 
 const API_URL = 'http://localhost:3000/document'; // Adjust to your API URL
 const TOKEN =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJrc2Q4OHlhbnlna3ZxczdldmZ6MXlnZTkiLCJlbWFpbCI6InRlc3RAZ21haWwuY29tIiwibmFtZSI6IkpvaG4gRG9lIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3NDE0NDYyOTksImV4cCI6MTc0MTQ2MDY5OX0.oddp-OTnSr5ubgI7G6-2BOPA4fv4fKcFtYDs-1mhDok'; // Replace with a valid token
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJrc2Q4OHlhbnlna3ZxczdldmZ6MXlnZTkiLCJlbWFpbCI6InRlc3RAZ21haWwuY29tIiwibmFtZSI6IkpvaG4gRG9lIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3NDE2NDgzNTQsImV4cCI6MTc0MTY2Mjc1NH0.axVJsY3dqLgrmm_iuBrAGVhdpbX1-CIPg0Px39XtQ7M'; // Replace with a valid token
 const CONCURRENT_REQUESTS = 300; // Number of concurrent uploads
 const FILE_PATH =
   'C:\\Users\\shivdutt\\Desktop\\ishwer\\document_management_project\\document-management\\document-management\\uploads\\ksd88yanygkvqs7evfz1yge9\\2025\\bhlx11fu240rm17nmstbgfxr.jpeg';

@@ -387,6 +387,7 @@ export class IngestionService {
       const data = await this.db
         .select({
           ingestionRouteManageId: ingestionRouteManage.id,
+          route: ingestionRouteManage.route,
         })
         .from(ingestionRouteManage)
         .innerJoin(

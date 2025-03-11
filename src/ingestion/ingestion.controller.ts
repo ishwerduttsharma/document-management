@@ -111,4 +111,12 @@ export class IngestionController {
   async findAllIngestionRoute(@Body() payload: FindIngestionRouteDto) {
     return await this.ingestionService.findAllIngestionRoute(payload);
   }
+
+  //mock api to run failed ingestion of particular route
+  // @Post('failed/run')
+  // @ApiBearerAuth('Authorization')
+  // @UseGuards(RoleGuard)
+  // async runFailedIngestion(@Body() payload: {ingestionTypeId: string, routeId:string, dateFrom:string, dateTo:string}) {
+  //   return await this.ingestionService.runFailedIngestion(payload);
+  // }
 }
