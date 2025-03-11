@@ -23,8 +23,10 @@ export class IngestionWorker {
     private readonly mockservice: MockIngestionService,
   ) {}
 
-  @Job('ingestDoc')
+  @Job('ingestDoc', { batchSize: 300, pollingIntervalSeconds: 1 })
   async handleMyJob(jobs: JobWithMetadata<IngestJobData>[]) {
+    const ingestionSuccessUpdates: string[] = [];
+    const ingestionFailureUpdates: string[] = [];
     for (const job of jobs) {
       if (!jobs || !job.data) {
         console.error('Received undefined job');
@@ -42,17 +44,31 @@ export class IngestionWorker {
           route,
         );
         if (!res || res?.status !== 200) {
-          await this.ingestionService.update(ingestionId, QueueStatus.FAILED);
+          ingestionFailureUpdates.push(ingestionId);
           throw new Error(`File id ${fileId} data ingestion failed`);
         }
-        await this.ingestionService.update(ingestionId, QueueStatus.COMPLETED);
+        ingestionSuccessUpdates.push(ingestionId);
 
         console.log(`File id ${fileId} data ingested successfully`);
       } catch (error) {
         console.log(`File id ${fileId} data ingestion failed`);
         console.log(error.message);
-        await this.ingestionService.update(ingestionId, QueueStatus.FAILED);
+        ingestionFailureUpdates.push(ingestionId);
       }
+    }
+
+    // Bulk update file statuses in DB
+    if (ingestionSuccessUpdates.length > 0) {
+      await this.ingestionService.bulkUpdateStatus(
+        ingestionSuccessUpdates,
+        QueueStatus.COMPLETED,
+      );
+    }
+    if (ingestionFailureUpdates.length > 0) {
+      await this.ingestionService.bulkUpdateStatus(
+        ingestionFailureUpdates,
+        QueueStatus.FAILED,
+      );
     }
   }
 }

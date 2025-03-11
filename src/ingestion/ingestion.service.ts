@@ -20,6 +20,7 @@ import {
   count,
   desc,
   between,
+  inArray,
 } from 'drizzle-orm';
 import {
   users,
@@ -175,6 +176,14 @@ export class IngestionService {
       .update(ingestionTracker)
       .set({ status: status, updatedDate: new Date().toDateString() })
       .where(eq(ingestionTracker.id, id));
+  }
+
+  //internal
+  async bulkUpdateStatus(ids: string[], status: QueueStatus) {
+    return await this.db
+      .update(ingestionTracker)
+      .set({ status: status, updatedDate: new Date().toDateString() })
+      .where(inArray(ingestionTracker.id, ids));
   }
 
   //ingestion type management

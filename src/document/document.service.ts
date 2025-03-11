@@ -9,7 +9,7 @@ import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { createId } from '@paralleldrive/cuid2';
 import { documents, userDocRoles } from 'src/database/schema';
-import { and, desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from 'src/database/schema';
 import { QueueStatus, Roles } from 'src/lib/common';
@@ -223,6 +223,13 @@ export class DocumentService {
       .update(documents)
       .set({ status: status, updatedDate: new Date().toDateString() })
       .where(eq(documents.id, fileId));
+  }
+
+  async bulkUpdateStatus(fileIds: string[], status: QueueStatus) {
+    return await this.db
+      .update(documents)
+      .set({ status: status, updatedDate: new Date().toDateString() })
+      .where(inArray(documents.id, fileIds));
   }
 
   createBucket({ userId }: { userId: string }) {

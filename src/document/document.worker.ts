@@ -32,11 +32,26 @@ export class UploadWorker {
     private readonly ingestionService: IngestionService,
   ) {}
 
-  @Job('uploadFile')
+  @Job('uploadFile', { batchSize: 300, pollingIntervalSeconds: 1 }) // Increase concurrency
   async handleMyJob(jobs: JobWithMetadata<UploadJobData>[]) {
     if (!jobs?.length) {
       console.error('Received undefined or empty job batch');
       return;
+    }
+    const fileSuccessUpdates: string[] = [];
+    const fileFailureUpdates: string[] = [];
+    const ingestionType = 'ingestDoc';
+
+    const isIngestionActive =
+      await this.ingestionService.findStatusOfIngestionType(ingestionType);
+
+    let ingestionRoutes: { ingestionRouteManageId: string; route: string }[] =
+      [];
+    if (isIngestionActive) {
+      ingestionRoutes =
+        await this.ingestionService.findAllIngestionRouteOfIngestionType(
+          ingestionType,
+        );
     }
 
     await Promise.allSettled(
@@ -59,39 +74,44 @@ export class UploadWorker {
           // Write file asynchronously
           await fs.writeFile(filePath, buffer);
 
-          await this.documentService.updateStatus(
-            fileId,
-            QueueStatus.COMPLETED,
-          );
+          fileSuccessUpdates.push(fileId);
           console.log(`File ${fileName} uploaded successfully`);
 
           // Emit ingestion job
-          await this.handleIngestion(fileId, filePath);
+          await this.handleIngestion(ingestionRoutes, fileId, filePath);
         } catch (error) {
           console.error(`File ${fileName} upload failed:`, error.message);
-          await this.documentService.updateStatus(fileId, QueueStatus.FAILED);
+          fileFailureUpdates.push(fileId);
         }
       }),
     );
+    // Bulk update file statuses in DB
+    if (fileSuccessUpdates.length > 0) {
+      await this.documentService.bulkUpdateStatus(
+        fileSuccessUpdates,
+        QueueStatus.COMPLETED,
+      );
+    }
+    if (fileFailureUpdates.length > 0) {
+      await this.documentService.bulkUpdateStatus(
+        fileFailureUpdates,
+        QueueStatus.FAILED,
+      );
+    }
   }
 
-  private async handleIngestion(fileId: string, filePath: string) {
-    const ingestionType = 'ingestDoc';
-    const isIngestionActive =
-      await this.ingestionService.findStatusOfIngestionType(ingestionType);
-    if (!isIngestionActive) return;
-
-    const ingestionRoutes =
-      await this.ingestionService.findAllIngestionRouteOfIngestionType(
-        ingestionType,
-      );
-
+  private async handleIngestion(
+    ingestionRoutes: { ingestionRouteManageId: string; route: string }[],
+    fileId: string,
+    filePath: string,
+  ) {
     await Promise.allSettled(
       ingestionRoutes.map(async (ingestionRoute) => {
         const ingestionId = await this.ingestionService.create(
           fileId,
           ingestionRoute.ingestionRouteManageId,
         );
+
         this.pgBossService.scheduleJob('ingestDoc', {
           fileId,
           filePath,
@@ -109,7 +129,7 @@ export class DeleteWorker {
 
   constructor() {}
 
-  @Job('deleteFile')
+  @Job('deleteFile', { batchSize: 300, pollingIntervalSeconds: 1 })
   async handleDeleteJob(jobs: JobWithMetadata<DeleteJobData>[]) {
     for (const job of jobs) {
       if (!job.data) {
