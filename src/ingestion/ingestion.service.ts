@@ -188,6 +188,15 @@ export class IngestionService {
 
   //ingestion type management
   async createIngestionType(userId: string, payload: CreateIngestionTypeDto) {
+    const checkDuplicate = await this.db
+      .select()
+      .from(ingestionTypeManage)
+      .where(eq(ingestionTypeManage.ingestionType, payload.ingestionType));
+    if (checkDuplicate && checkDuplicate.length > 0) {
+      throw new ConflictException(
+        `This ingestion type: ${payload.ingestionType} already exists`,
+      );
+    }
     try {
       await this.db.insert(ingestionTypeManage).values({
         id: createId(),
@@ -196,7 +205,7 @@ export class IngestionService {
         createdBy: userId,
         createdDate: new Date().toDateString(),
       });
-      return { message: 'new ingestion type added successfully', status: 200 };
+      return { message: 'new ingestion type added successfully', status: 201 };
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Error inserting ingestion type',
@@ -274,6 +283,20 @@ export class IngestionService {
     userId: string,
     payload: CreateIngestionManageDto,
   ) {
+    const checkDuplicate = await this.db
+      .select()
+      .from(ingestionRouteManage)
+      .where(
+        and(
+          eq(ingestionRouteManage.ingestionTypeId, payload.ingestionTypeId),
+          eq(ingestionRouteManage.route, payload.route),
+        ),
+      );
+    if (checkDuplicate && checkDuplicate.length > 0) {
+      throw new ConflictException(
+        `This ingestion route: ${payload.route} for this ingestion type already exists`,
+      );
+    }
     try {
       await this.db.insert(ingestionRouteManage).values({
         id: createId(),
@@ -284,7 +307,7 @@ export class IngestionService {
         createdBy: userId,
         createdDate: new Date().toDateString(),
       });
-      return { message: 'new ingestion route added successfully', status: 200 };
+      return { message: 'new ingestion route added successfully', status: 201 };
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Error inserting ingestion route',

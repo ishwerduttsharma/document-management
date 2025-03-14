@@ -20,7 +20,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate": "npx drizzle-kit generate && npx drizzle-kit migrate || echo 'Skipping already existing tables/enums'",
     "load-test": "ts-node test/document-upload.load-test.ts",
-    "test:user": "jest user.service.spec.ts"
+    "test:user": "jest user.service.spec.ts",
+    "test:doc": "jest document.service.spec.ts",
+    "test:ingest": "jest ingestion.service.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
@@ -52,6 +54,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
+    "@faker-js/faker": "^9.6.0",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
@@ -94,6 +97,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    }
   }
 }

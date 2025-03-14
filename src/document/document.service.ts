@@ -136,8 +136,8 @@ export class DocumentService {
         bucket: documents.bucket,
       })
       .from(documents)
-      .innerJoin(userDocRoles, eq(userDocRoles.userId, userId))
-      .where(eq(documents.id, fileId));
+      .innerJoin(userDocRoles, eq(userDocRoles.docId, documents.id))
+      .where(and(eq(documents.id, fileId), eq(userDocRoles.userId, userId)));
 
     if (!file) {
       throw new NotFoundException('File not found');
