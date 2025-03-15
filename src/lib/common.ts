@@ -34,6 +34,11 @@ export enum Roles {
   VIEWER = 'VIEWER',
 }
 
+export enum platformRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
 export enum QueueStatus {
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',

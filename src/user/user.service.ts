@@ -12,6 +12,7 @@ import { eq, ilike, ne, and, SQL } from 'drizzle-orm';
 import { users, blackListToken } from '../database/schema';
 import { CreateUserDto, UserPaginationDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { platformRole } from 'src/lib/common';
 
 @Injectable()
 export class UserService {
@@ -19,6 +20,51 @@ export class UserService {
     @Inject('drizzleProvider')
     private readonly db: PostgresJsDatabase<typeof schema>,
   ) {}
+
+  async createPlatformAdmin(createUserDto: CreateUserDto) {
+    const [[checkIfAdminExist], [checkExistingUser]] = await Promise.all([
+      await this.db
+        .select()
+        .from(users)
+        .where(eq(users.platformRole, platformRole.ADMIN)),
+
+      await this.db
+        .select()
+        .from(users)
+        .where(eq(users.email, createUserDto.email)),
+    ]);
+    if (checkIfAdminExist) {
+      throw new ConflictException(`Admin already exists`);
+    }
+    if (checkExistingUser) {
+      throw new ConflictException(
+        `User with email ${createUserDto.email} already exists`,
+      );
+    }
+    try {
+      const saltOrRound = 10;
+      const hashedPassword = await bcrypt.hash(
+        createUserDto.password,
+        saltOrRound,
+      );
+      const userData = {
+        name: createUserDto.name,
+        email: createUserDto.email,
+        password: hashedPassword,
+        platformRole: platformRole.ADMIN,
+        createdDate: new Date().toDateString(),
+      };
+
+      await this.db.insert(users).values(userData).returning();
+      return { message: 'Admin inserted successfully', status: 201 };
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Error inserting admin',
+        error: error.message,
+      });
+    }
+  }
+
   async create(createUserDto: CreateUserDto) {
     const [checkExistingUser] = await this.db
       .select()
@@ -43,7 +89,7 @@ export class UserService {
       };
 
       await this.db.insert(users).values(userData).returning();
-      return { message: 'user inserted successfully', status: 200 };
+      return { message: 'user inserted successfully', status: 201 };
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Error inserting user',
@@ -69,7 +115,7 @@ export class UserService {
     return {
       message: 'User details fetched successfully',
       data: user,
-      statusCode: 200,
+      status: 200,
     };
   }
 
@@ -123,11 +169,19 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     try {
-      await this.db.update(users).set({ name: updateUserDto.name });
+      let password = userExistOrNot.password;
+      if (updateUserDto?.password) {
+        const saltOrRound = 10;
+        password = await bcrypt.hash(updateUserDto.password, saltOrRound);
+      }
+      await this.db
+        .update(users)
+        .set({ name: updateUserDto.name, password })
+        .where(eq(users.id, userId));
       return {
         message: 'User details updated successfully',
         data: [],
-        status: 201,
+        status: 203,
       };
     } catch (error) {
       throw new InternalServerErrorException({

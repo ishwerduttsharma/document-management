@@ -1,11 +1,13 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsOptional, MinLength } from 'class-validator';
+import { CreateUserDto } from './create-user.dto';
+export class UpdateUserDto extends PartialType(
+  OmitType(CreateUserDto, ['email'] as const),
+) {
+  @ApiPropertyOptional() // Explicitly add properties for Swagger
+  name?: string;
 
-export class UpdateUserDto {
-  @ApiPropertyOptional({
-    example: 'John Doe',
-    description: 'User full name',
-  })
-  name: string;
+  @ApiPropertyOptional()
+  password?: string;
 }

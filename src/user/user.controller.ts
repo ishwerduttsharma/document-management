@@ -28,6 +28,12 @@ export class UserController {
     return await this.userService.create(createUserDto);
   }
 
+  @Post('/platform/admin')
+  @AllowUnauthorizedRequest()
+  async createPlatformAdmin(@Body() createUserDto: CreateUserDto) {
+    return await this.userService.createPlatformAdmin(createUserDto);
+  }
+
   @Get('profile')
   @ApiBearerAuth('Authorization')
   async findUser(@User() user: AuthProfile) {

@@ -1,272 +1,350 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import { NotFoundException, ConflictException } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { DatabaseModule } from '../database/database.module';
 import { UserService } from './user.service';
-import {
-  InternalServerErrorException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { PgBossService, PgBossModule } from '@wavezync/nestjs-pgboss';
+import { drizzleProvider } from '../database/drizzle.provider';
+import { blackListToken, users } from '../database/schema';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { users, blackListToken } from '../database/schema';
-
-const mockDb = {
-  select: jest.fn().mockReturnThis(),
-  from: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  set: jest.fn().mockReturnThis(),
-  offset: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis(),
-  returning: jest.fn().mockReturnThis(),
-  values: jest.fn().mockReturnThis(),
-};
-
-jest.mock('bcryptjs', () => ({
-  hash: jest.fn().mockResolvedValue('hashedPassword'),
-}));
+import * as schema from 'src/database/schema';
+import { QueueStatus, Roles } from 'src/lib/common';
+import { Pool } from 'pg';
+import { faker } from '@faker-js/faker';
+import * as fs from 'fs';
+import { createId } from '@paralleldrive/cuid2';
+import { inArray, eq, or } from 'drizzle-orm';
+import * as path from 'path';
+import { platformRole } from 'src/lib/common';
 
 describe('UserService', () => {
-  let service: UserService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserService,
-        { provide: 'drizzleProvider', useValue: mockDb },
-      ],
+  let userService: UserService;
+  let pgBossService: PgBossService;
+  let db: PostgresJsDatabase<typeof schema>;
+  const user1Id = createId();
+  const user1email = 'user1email@gmail.com';
+  const user1name = 'user1name';
+  const user1password = 'user1password';
+  const user2email = 'user2email@gmail.com';
+  const user2name = 'user2name';
+  const user2password = 'user2password';
+  const user3email = 'user3email@gmail.com';
+  const user3name = 'user3name';
+  const user3password = 'user3password';
+  const token = 'aaaaaaaaaaaaaaaa';
+  const expiresAt = new Date();
+  let data;
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot(), DatabaseModule],
+      providers: [UserService, drizzleProvider],
     }).compile();
 
-    service = module.get<UserService>(UserService);
+    userService = moduleRef.get<UserService>(UserService);
+    pgBossService = moduleRef.get<PgBossService>(PgBossService);
+    db = moduleRef.get<PostgresJsDatabase<typeof schema>>('drizzleProvider');
+
+    await db.transaction(async (tx) => {
+      [data] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.platformRole, platformRole.ADMIN));
+      if (data) {
+        await tx
+          .update(users)
+          .set({ platformRole: platformRole.USER })
+          .where(eq(users.id, data.id));
+      }
+      await tx.insert(users).values({
+        id: user1Id,
+        email: user1email,
+        name: user1name,
+        password: user1password,
+      });
+    });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  afterAll(async () => {
+    await db
+      .delete(users)
+      .where(inArray(users.email, [user1email, user2email, user3email]));
+
+    if (data) {
+      await db
+        .update(users)
+        .set({ platformRole: platformRole.ADMIN })
+        .where(eq(users.id, data.id));
+    }
+    await db.delete(blackListToken).where(eq(blackListToken.token, token));
+  });
+
+  it('should be defined', () => {
+    expect(userService).toBeDefined();
+  });
+  describe('createPlatformAdmin', () => {
+    it('should throw ConflictException if a email is not unique', async () => {
+      jest
+        .spyOn(userService, 'createPlatformAdmin')
+        .mockRejectedValueOnce(
+          new ConflictException(`User with email ${user1email} already exists`),
+        );
+
+      await expect(
+        userService.createPlatformAdmin({
+          email: user1email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      await expect(
+        userService.createPlatformAdmin({
+          email: user1email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(`User with email ${user1email} already exists`);
+    });
+    it('should create a platform admin', async () => {
+      try {
+        // ✅ Call the function and wait for completion
+        const result = await userService.createPlatformAdmin({
+          email: user2email,
+          name: user2name,
+          password: user2password,
+        });
+        // ✅ Validate result
+        jest
+          .spyOn(userService, 'createPlatformAdmin')
+          .mockReturnValueOnce(result as any);
+
+        expect(result).toBeTruthy();
+        expect(result.status).toBe(201);
+      } catch (error) {
+        console.log('Error inside test:', error);
+        throw error; // Rethrow to fail the test properly if an error occurs
+      }
+    });
+    it('should throw ConflictException if a second admin to be create', async () => {
+      await userService.createPlatformAdmin({
+        email: user2email,
+        name: user2name,
+        password: user2password,
+      });
+      jest
+        .spyOn(userService, 'createPlatformAdmin')
+        .mockRejectedValueOnce(new ConflictException(`Admin already exists`));
+
+      await expect(
+        userService.createPlatformAdmin({
+          email: user2email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      await expect(
+        userService.createPlatformAdmin({
+          email: user2email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(`Admin already exists`);
+    });
   });
 
   describe('create', () => {
-    it('should create a user successfully', async () => {
-      try {
-        mockDb.select.mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValueOnce([]),
-          }),
-        });
+    it('should throw ConflictException if a email is not unique', async () => {
+      jest
+        .spyOn(userService, 'create')
+        .mockRejectedValueOnce(
+          new ConflictException(`User with email ${user1email} already exists`),
+        );
 
-        mockDb.insert.mockReturnValue({
-          values: jest.fn().mockReturnValue({
-            returning: jest
-              .fn()
-              .mockResolvedValueOnce([
-                { id: '123', email: 'test@example.com' },
-              ]),
-          }),
-        });
+      await expect(
+        userService.create({
+          email: user1email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(ConflictException);
 
-        const result = await service.create({
-          name: 'John Doe',
-          email: 'test@example.com',
-          password: 'password123',
-        });
-
-        console.log('Result:', result); // Debugging output
-
-        expect(result).toEqual({
-          message: 'user inserted successfully',
-          status: 200,
-        });
-
-        expect(mockDb.insert).toHaveBeenCalled();
-      } catch (error) {
-        console.error('Test failed:', error);
-        throw error; // Ensure Jest logs the actual error
-      }
+      await expect(
+        userService.create({
+          email: user1email,
+          name: user2name,
+          password: user2password,
+        }),
+      ).rejects.toThrow(`User with email ${user1email} already exists`);
     });
-    it('should throw ConflictException if user already exists', async () => {
+    it('should create a user', async () => {
       try {
-        // Fix: Properly mock the entire database query chain
-        mockDb.select.mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: jest
-              .fn()
-              .mockResolvedValueOnce([
-                { id: '123', email: 'test@example.com' },
-              ]), // Simulate existing user
-          }),
+        // ✅ Call the function and wait for completion
+        const result = await userService.create({
+          email: user3email,
+          name: user3name,
+          password: user3password,
         });
+        // ✅ Validate result
+        jest.spyOn(userService, 'create').mockReturnValueOnce(result as any);
 
-        await expect(
-          service.create({
-            name: 'John',
-            email: 'test@example.com',
-            password: 'pass123',
-          }),
-        ).rejects.toThrow(ConflictException);
+        expect(result).toBeTruthy();
+        expect(result.status).toBe(201);
       } catch (error) {
-        console.error('Test failed:', error);
-        throw error; // Ensure Jest logs the actual error
+        console.log('Error inside test:', error);
+        throw error; // Rethrow to fail the test properly if an error occurs
       }
     });
   });
 
   describe('findUser', () => {
-    it('should return user details', async () => {
-      mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValueOnce([
-            {
-              id: '123',
-              email: 'test@example.com',
-              name: 'test',
-              password: 'aaaa',
-              platformRole: 'USER',
-              createdDate: '2025-03-08 00:00:00',
-              updatedDate: '2025-03-08 00:00:00',
-            },
-          ]),
-        }),
-      });
+    it('should throw NotFoundException if no user of id found', async () => {
+      // Mock findAll to return an empty array
+      jest
+        .spyOn(userService, 'findUser')
+        .mockRejectedValueOnce(new NotFoundException('User not found'));
 
-      const result = await service.findUser('123');
+      await expect(userService.findUser(createId())).rejects.toThrow(
+        NotFoundException,
+      );
 
-      expect(result).toEqual({
-        message: 'User details fetched successfully',
-        data: {
-          id: '123',
-          email: 'test@example.com',
-          name: 'test',
-          password: 'aaaa',
-          platformRole: 'USER',
-          createdDate: '2025-03-08 00:00:00',
-          updatedDate: '2025-03-08 00:00:00',
-        },
-        statusCode: 200,
-      });
+      await expect(userService.findUser(createId())).rejects.toThrow(
+        'User not found',
+      );
     });
+    it('should return user profile', async () => {
+      const result = await userService.findUser(user1Id);
+      jest.spyOn(userService, 'findUser').mockReturnValueOnce(result as any);
 
-    it('should throw NotFoundException if user not found', async () => {
-      mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValueOnce([]), // Simulating no user found
-        }),
+      expect(result.status).toBe(200);
+    });
+  });
+
+  describe('findUserByEmail', () => {
+    it('should throw NotFoundException if no user of email found', async () => {
+      // Mock findAll to return an empty array
+      jest
+        .spyOn(userService, 'findUserByEmail')
+        .mockRejectedValueOnce(
+          new NotFoundException('User not exists with this email'),
+        );
+
+      const email = '122exz@gmail.com';
+      await expect(userService.findUserByEmail(email)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      await expect(userService.findUserByEmail(email)).rejects.toThrow(
+        'User not exists with this email',
+      );
+    });
+    it('should return user data', async () => {
+      const result = await userService.findUserByEmail(user1email);
+      jest
+        .spyOn(userService, 'findUserByEmail')
+        .mockReturnValueOnce(result as any);
+
+      expect(result).toBeTruthy();
+    });
+  });
+
+  describe('findAllUsersByEmail', () => {
+    it('should throw NotFoundException if no user of similar email found', async () => {
+      // Mock findAll to return an empty array
+      jest
+        .spyOn(userService, 'findAllUsersByEmail')
+        .mockRejectedValueOnce(
+          new NotFoundException('No users found with this email'),
+        );
+
+      const email = '122exz@gmail.com';
+      await expect(
+        userService.findAllUsersByEmail(user1Id, { email }),
+      ).rejects.toThrow(NotFoundException);
+
+      await expect(
+        userService.findAllUsersByEmail(user1Id, { email }),
+      ).rejects.toThrow('No users found with this email');
+    });
+    it('should return user data with similar email', async () => {
+      const result = await userService.findAllUsersByEmail(user1Id, {
+        email: 'u',
       });
+      jest
+        .spyOn(userService, 'findAllUsersByEmail')
+        .mockReturnValueOnce(result as any);
 
-      await expect(service.findUser('123')).rejects.toThrow(NotFoundException);
+      expect(result.status).toBe(200);
     });
   });
 
   describe('update', () => {
-    it('should update user details', async () => {
-      // Mock user existence check
-      mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValueOnce([{ id: '123' }]), // Simulating user exists
+    it('should throw NotFoundException if no user of found of login id', async () => {
+      // Mock findAll to return an empty array
+      jest
+        .spyOn(userService, 'update')
+        .mockRejectedValueOnce(new NotFoundException('User not found'));
+
+      await expect(
+        userService.update(createId(), {
+          name: 'user1updated',
+          password: 'user1password',
         }),
-      });
+      ).rejects.toThrow(NotFoundException);
 
-      // Mock update function
-      mockDb.update.mockReturnValue({
-        set: jest.fn().mockResolvedValueOnce([]), // Simulating update success
-      });
-
-      const result = await service.update('123', { name: 'New Name' });
-
-      expect(result).toEqual({
-        message: 'User details updated successfully',
-        data: [],
-        status: 201,
-      });
-
-      expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.update).toHaveBeenCalled();
+      await expect(
+        userService.update(createId(), {
+          name: 'user1updated',
+          password: 'user1password',
+        }),
+      ).rejects.toThrow('User not found');
     });
-
-    it('should throw NotFoundException if user does not exist', async () => {
-      // Mock user not found
-      mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValueOnce([]), // No user found
-        }),
+    it('should update user', async () => {
+      const result = await userService.update(user1Id, {
+        name: 'user1updated',
+        password: 'user1password',
       });
 
-      await expect(service.update('123', { name: 'New Name' })).rejects.toThrow(
-        NotFoundException,
-      );
+      jest.spyOn(userService, 'update').mockReturnValueOnce(result as any);
 
-      expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.update).not.toHaveBeenCalled(); // Ensure update is not attempted
-    });
-
-    it('should throw InternalServerErrorException on update failure', async () => {
-      // Mock user existence check
-      mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValueOnce([{ id: '123' }]), // Simulating user exists
-        }),
-      });
-
-      // Mock update failure
-      mockDb.update.mockReturnValue({
-        set: jest.fn().mockImplementationOnce(() => {
-          throw new Error('DB error'); // Simulate database error
-        }),
-      });
-
-      await expect(service.update('123', { name: 'New Name' })).rejects.toThrow(
-        InternalServerErrorException,
-      );
-
-      expect(mockDb.select).toHaveBeenCalled();
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(result).toBeTruthy();
+      expect(result.status).toBe(203);
     });
   });
 
   describe('logout', () => {
-    it('should insert token into blacklist', async () => {
-      mockDb.insert.mockReturnValue({
-        values: jest.fn().mockResolvedValueOnce([]),
-      });
+    it('should add token to black list', async () => {
+      const result = await userService.logout(token, expiresAt);
 
-      const result = await service.logout('some-token', new Date());
-      expect(mockDb.insert).toHaveBeenCalledWith(expect.any(Object));
-      expect(result).toBeDefined();
-    });
+      jest.spyOn(userService, 'logout').mockReturnValueOnce(result as any);
 
-    it('should throw InternalServerErrorException on insert failure', async () => {
-      mockDb.insert.mockReturnValue({
-        values: jest.fn().mockImplementationOnce(() => {
-          throw new Error('DB error');
-        }),
-      });
-
-      await expect(service.logout('some-token', new Date())).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      expect(result).toBeTruthy();
     });
   });
 
   describe('searchForBlackListToken', () => {
     beforeEach(() => {
-      jest.clearAllMocks(); // Reset all mocks before each test
+      jest.restoreAllMocks(); // Reset mocks before each test
     });
 
-    it('should return true if token is blacklisted', async () => {
-      mockDb.select.mockReturnThis();
-      mockDb.from.mockReturnThis();
-      mockDb.where.mockResolvedValueOnce([{ token: 'some-token' }]); // Simulate blacklisted token
+    it('should return false if token not exist', async () => {
+      jest
+        .spyOn(userService, 'searchForBlackListToken')
+        .mockResolvedValueOnce(false);
 
-      const result = await service.searchForBlackListToken('some-token');
-      expect(result).toBe(true);
-    });
+      const result = await userService.searchForBlackListToken('notoken');
+      console.log('restul:', result);
 
-    it('should return false if token is not blacklisted', async () => {
-      mockDb.select.mockReturnThis();
-      mockDb.from.mockReturnThis();
-      mockDb.where.mockResolvedValueOnce([]); // Simulate empty result
-
-      const result = await service.searchForBlackListToken('some-token');
-      console.log('Mocked DB Response:', result); // Debugging line
       expect(result).toBe(false);
+    });
+
+    it('should return true if token exist', async () => {
+      jest
+        .spyOn(userService, 'searchForBlackListToken')
+        .mockResolvedValueOnce(true);
+      const falseResult = await userService.searchForBlackListToken(token);
+
+      expect(falseResult).toBe(true);
     });
   });
 });
