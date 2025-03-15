@@ -1,10 +1,10 @@
 # document-management
 
 document management service
-
+This project mainly focused on document management and its ingestion management
 This Nestjs project have following modules
 
-Database Module
+Database Module,
 AuthModule,
 UserModule,
 Document Module
@@ -29,16 +29,20 @@ auth controller: this contain following apis:
 @Post sign in api: allow unauthorized request guard is mounted on it. it taken email, password in payload and then if found user with matching password return user data with signed token.
 @Post log out api: this api invalidate user's last signed token.
 
+auth service specs: this file contain all test cases of auth service file business logics.
+command to run auth service test is: "npm run test:auth"
+
 UserModule:
 This module is responsibe for all user's profile based interactions. This module pocess following main component which should be described:
 user decorator: this param decorator resposible for fetching user's data from request that is added during validating token.
 user controller: this contain following apis:
+@Post user platform admin post api to create admin: this api is responsible for creating admin if no platform admin exist.
 @Post user post api to create user: this api is responsible for creating user.
 @Get user profile api: this api returns log in user profile like name ,email.
 @Patch user update api: this api is responsible to allow user to update his/her/their name
 @Get user all api: this api is responsible for returning 20 likely matching user data(name,email,id) which are likely to match provided email address. it is used when user assign rights of viewer/editor/admin for his/her/their uploaded document
-user service specs: this file contain many test cases of user service file business logics.
-note: unit test cases are written only for user service file. command to run user service test is: "npm run test:user"
+user service specs: this file contain all test cases of user service file business logics.
+command to run user service test is: "npm run test:user"
 
 DocumentModule:
 This module is resposible for managing documents and contain following main components which should be described:
@@ -73,6 +77,9 @@ vii. for each route create the ingestion record in ingestion tracker table based
 viii. if it error occur while storing file or updating status, document status is maked as 'Failed'.
 delete worker: this delete file from directory
 
+document service specs: this file contain all test cases of document service file business logics.
+command to run document service test is: "npm run test:doc".
+
 IngestionModule:
 this module is reponsible for managing ingestion process and management. it contains following main component which should be described:
 Ingestion controller: all the apis in this controller are guarded with authorization of platform role 'admin'. it contains following apis:
@@ -93,6 +100,9 @@ ii. if status is not received as 200 then marked ingestion to Failed and throw e
 iii. if status is 200 then update status of ingestion to completed.
 iv. if an error occur then will then marked ingestion to Failed
 
+ingestion service specs: this file contain all test cases of ingestion service file business logics.
+command to run ingestion service test is: "npm run test:ingest"
+
 Folder lib: in it common file contains common function, enums, class to be used in many modules.
 
 document-upload.load-test file: this file is for load testing on document upload api. to do run testing follow below steps:
@@ -105,7 +115,15 @@ Guidelines to start project:
 run commands:
 i. npm i pnpm (if pnpm is not installed)
 ii. pnpm i
-iii. npm run start:dev
+iii. npm run migrate
+iv. npm run start:dev
+
+Guidelines to test project:
+run commands:
+i. npm i pnpm (if pnpm is not installed)
+ii. pnpm i (if packages are not installed)
+iii. npm run migrate (if this command not run previously)
+iv. npm run test
 
 load testing results:
 300 concurrent requests for uploading file completed in 3.52 seconds on local machine

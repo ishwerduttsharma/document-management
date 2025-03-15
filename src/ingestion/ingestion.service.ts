@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from 'src/database/schema';
@@ -63,9 +64,12 @@ export class IngestionService {
     let data;
     let records;
     try {
-      let limit = payload?.limit ? payload?.limit : 20;
-      if (limit > 100) limit = 100;
-      const skip = payload?.pageNumber ? (payload?.pageNumber - 1) * limit : 0;
+      let limit = Number(payload?.limit) || 20;
+      if (limit > 20) limit = 20;
+
+      const skip = Number(payload?.pageNumber)
+        ? (Number(payload.pageNumber) - 1) * limit
+        : 0;
       const conditions: SQL[] = [];
       if (payload?.status)
         conditions.push(eq(ingestionTracker.status, payload.status));
@@ -219,6 +223,13 @@ export class IngestionService {
     id: string,
     status: boolean,
   ) {
+    const [checkValidId] = await this.db
+      .select()
+      .from(ingestionTypeManage)
+      .where(eq(ingestionTypeManage.id, id));
+    if (!checkValidId) {
+      throw new BadRequestException('This ingestion type id not exist');
+    }
     try {
       await this.db
         .update(ingestionTypeManage)
@@ -321,6 +332,13 @@ export class IngestionService {
     id: string,
     status: boolean,
   ) {
+    const [checkValidId] = await this.db
+      .select()
+      .from(ingestionRouteManage)
+      .where(eq(ingestionRouteManage.id, id));
+    if (!checkValidId) {
+      throw new BadRequestException('This ingestion route id not exist');
+    }
     try {
       await this.db
         .update(ingestionRouteManage)
@@ -346,9 +364,12 @@ export class IngestionService {
     let data;
     let records;
     try {
-      let limit = payload?.limit ? payload?.limit : 20;
-      if (limit > 100) limit = 100;
-      const skip = payload?.pageNumber ? (payload?.pageNumber - 1) * limit : 0;
+      let limit = Number(payload?.limit) || 20;
+      if (limit > 20) limit = 20;
+
+      const skip = Number(payload?.pageNumber)
+        ? (Number(payload.pageNumber) - 1) * limit
+        : 0;
       const conditions: SQL[] = [];
       if (payload?.status || payload?.status === false)
         conditions.push(eq(ingestionRouteManage.status, payload.status));

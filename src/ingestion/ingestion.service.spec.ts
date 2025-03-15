@@ -1,5 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from '../database/database.module';
 import { IngestionService } from './ingestion.service';
@@ -208,6 +212,29 @@ describe('IngestionService', () => {
   });
 
   describe('changeIngestionTypeManageStatus', () => {
+    it('should throw  BadRequestException on update status of wrong ingestion type', async () => {
+      jest
+        .spyOn(ingestionService, 'changeIngestionTypeManageStatus')
+        .mockRejectedValueOnce(
+          new BadRequestException(`This ingestion type id not exist`),
+        );
+
+      await expect(
+        ingestionService.changeIngestionTypeManageStatus(
+          userId,
+          'wrongid',
+          true,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        ingestionService.changeIngestionTypeManageStatus(
+          userId,
+          'wrongid',
+          true,
+        ),
+      ).rejects.toThrow(`This ingestion type id not exist`);
+    });
     it('should update status of ingestion type', async () => {
       const result = await ingestionService.changeIngestionTypeManageStatus(
         userId,
@@ -308,6 +335,30 @@ describe('IngestionService', () => {
   });
 
   describe('changeIngestionManageRouteStatus', () => {
+    it('should throw  BadRequestException on update status of wrong ingestion route', async () => {
+      jest
+        .spyOn(ingestionService, 'changeIngestionManageRouteStatus')
+        .mockRejectedValueOnce(
+          new BadRequestException(`This ingestion route id not exist`),
+        );
+
+      await expect(
+        ingestionService.changeIngestionManageRouteStatus(
+          userId,
+          'wrongid',
+          true,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        ingestionService.changeIngestionManageRouteStatus(
+          userId,
+          'wrongid',
+          true,
+        ),
+      ).rejects.toThrow(`This ingestion route id not exist`);
+    });
+
     it('should update status of ingestion route', async () => {
       const result = await ingestionService.changeIngestionManageRouteStatus(
         userId,

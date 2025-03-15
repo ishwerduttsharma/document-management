@@ -9,7 +9,7 @@ import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { createId } from '@paralleldrive/cuid2';
 import { documents, userDocRoles } from 'src/database/schema';
-import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, sql, count } from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from 'src/database/schema';
 import { QueueStatus, Roles } from 'src/lib/common';
@@ -85,33 +85,55 @@ export class DocumentService {
 
   async findAll(userId: string, payload: DocQueryDto) {
     let data;
+    let records;
     try {
-      let limit = payload?.limit ? payload?.limit : 20;
-      if (limit > 100) limit = 100;
-      const skip = payload?.pageNumber ? (payload?.pageNumber - 1) * limit : 0;
-      data = await this.db
-        .select({
-          documentId: documents.id,
-          title: documents.title,
-          role: userDocRoles.role,
-          extension: documents.extension,
-          filePath: sql`CONCAT(${documents.bucket},'\\',${documents.id},'.',${documents.extension})`,
-          createDate: documents.createdDate,
-        })
-        .from(userDocRoles)
-        .innerJoin(documents, eq(documents.id, userDocRoles.docId))
-        .where(
-          and(
-            eq(userDocRoles.userId, userId),
-            eq(documents.status, QueueStatus.COMPLETED),
-            payload?.title
-              ? ilike(documents.title, `%${payload?.title}%`)
-              : undefined,
+      let limit = Number(payload?.limit) || 20;
+      if (limit > 20) limit = 20;
+
+      const skip = Number(payload?.pageNumber)
+        ? (Number(payload.pageNumber) - 1) * limit
+        : 0;
+      [data, [records]] = await Promise.all([
+        await this.db
+          .select({
+            documentId: documents.id,
+            title: documents.title,
+            role: userDocRoles.role,
+            extension: documents.extension,
+            filePath: sql`CONCAT(${documents.bucket},'\\',${documents.id},'.',${documents.extension})`,
+            createDate: documents.createdDate,
+          })
+          .from(userDocRoles)
+          .innerJoin(documents, eq(documents.id, userDocRoles.docId))
+          .where(
+            and(
+              eq(userDocRoles.userId, userId),
+              eq(documents.status, QueueStatus.COMPLETED),
+              // payload?.title
+              //   ? ilike(documents.title, `%${payload?.title}%`)
+              //   : undefined,
+            ),
+          )
+          .orderBy(desc(documents.createdDate))
+          .offset(skip)
+          .limit(limit),
+
+        await this.db
+          .select({
+            total: count(),
+          })
+          .from(userDocRoles)
+          .innerJoin(documents, eq(documents.id, userDocRoles.docId))
+          .where(
+            and(
+              eq(userDocRoles.userId, userId),
+              eq(documents.status, QueueStatus.COMPLETED),
+              // payload?.title
+              //   ? ilike(documents.title, `%${payload?.title}%`)
+              //   : undefined,
+            ),
           ),
-        )
-        .orderBy(desc(documents.createdDate))
-        .offset(skip)
-        .limit(limit);
+      ]);
 
       //use below function to access correct file path
       // const normalizedPath = path.normalize(val.filePath as string);
@@ -124,7 +146,7 @@ export class DocumentService {
     if (!Array.isArray(data) || data.length === 0) {
       throw new NotFoundException('No Data found');
     }
-    return { data: data, status: 200 };
+    return { data: data, count: +records.total, status: 200 };
   }
 
   async assignRolToUser(userId: string, payload: AssignRoleDto) {
