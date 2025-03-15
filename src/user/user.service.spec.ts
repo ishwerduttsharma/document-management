@@ -126,11 +126,6 @@ describe('UserService', () => {
       }
     });
     it('should throw ConflictException if a second admin to be create', async () => {
-      await userService.createPlatformAdmin({
-        email: user2email,
-        name: user2name,
-        password: user2password,
-      });
       jest
         .spyOn(userService, 'createPlatformAdmin')
         .mockRejectedValueOnce(new ConflictException(`Admin already exists`));

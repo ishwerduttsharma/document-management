@@ -22,7 +22,8 @@
     "load-test": "ts-node test/document-upload.load-test.ts",
     "test:user": "jest user.service.spec.ts",
     "test:doc": "jest document.service.spec.ts",
-    "test:ingest": "jest ingestion.service.spec.ts"
+    "test:ingest": "jest ingestion.service.spec.ts",
+    "test:auth": "jest auth.service.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
@@ -100,6 +101,11 @@
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/$1"
-    }
+    },
+    "detectOpenHandles": true,
+    "forceExit": true,
+    "clearMocks": true,
+    "resetMocks": true,
+    "restoreMocks": true
   }
 }
