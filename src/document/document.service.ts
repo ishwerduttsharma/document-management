@@ -109,9 +109,9 @@ export class DocumentService {
             and(
               eq(userDocRoles.userId, userId),
               eq(documents.status, QueueStatus.COMPLETED),
-              // payload?.title
-              //   ? ilike(documents.title, `%${payload?.title}%`)
-              //   : undefined,
+              payload?.title
+                ? ilike(documents.title, `%${payload?.title}%`)
+                : undefined,
             ),
           )
           .orderBy(desc(documents.createdDate))
@@ -128,9 +128,9 @@ export class DocumentService {
             and(
               eq(userDocRoles.userId, userId),
               eq(documents.status, QueueStatus.COMPLETED),
-              // payload?.title
-              //   ? ilike(documents.title, `%${payload?.title}%`)
-              //   : undefined,
+              payload?.title
+                ? ilike(documents.title, `%${payload?.title}%`)
+                : undefined,
             ),
           ),
       ]);

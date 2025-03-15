@@ -127,3 +127,11 @@ iv. npm run test
 
 load testing results:
 300 concurrent requests for uploading file completed in 3.52 seconds on local machine
+
+Swagger link:
+http://localhost:3000/api#/
+
+Note:
+security loophole: if user login then login again in mean time if somebody stole user's previous token then even if user with new token log out and if user's first token is not expirted then it will work
+solution: keep track of user's token in users table. add token to user table at time of login and at guard match it.
+i did not implement it as i tried to focused on document management and ingestion management
