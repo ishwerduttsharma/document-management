@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, Min, IsOptional } from 'class-validator';
 
+import { Type } from 'class-transformer';
+
 export class Pagination {
   @ApiPropertyOptional({
     example: 1,
@@ -8,6 +10,7 @@ export class Pagination {
     minimum: 1,
   })
   @IsOptional()
+  @Type(() => Number) // ✅ Convert string to number
   @IsInt({ message: 'Page number must be an integer' })
   @Min(1, { message: 'Page number must be at least 1' })
   pageNumber?: number;
@@ -18,10 +21,12 @@ export class Pagination {
     minimum: 1,
   })
   @IsOptional()
+  @Type(() => Number) // ✅ Convert string to number
   @IsInt({ message: 'Limit must be an integer' })
   @Min(1, { message: 'Limit must be at least 1' })
   limit?: number;
 }
+
 export type AuthProfile = {
   name: string;
   email: string;

@@ -1,5 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
+
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -7,6 +9,8 @@ async function bootstrap() {
     bufferLogs: true,
     bodyParser: true,
   });
+  app.useGlobalPipes(new ValidationPipe());
+
   // Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('Document Management ')

@@ -30,6 +30,6 @@ export class UserPaginationDto {
     description: 'Filter users by email',
   })
   @IsOptional()
-  @IsEmail({}, { message: 'Invalid email format' })
+  @IsString()
   email?: string;
 }

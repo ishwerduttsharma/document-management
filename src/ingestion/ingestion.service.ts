@@ -379,6 +379,10 @@ export class IngestionService {
         conditions.push(
           eq(ingestionRouteManage.ingestionTypeId, payload.ingestionTypeId),
         );
+      if (payload?.clientEmail)
+        conditions.push(
+          eq(ingestionRouteManage.clientEmail, payload.clientEmail),
+        );
       if (payload?.createdDate) {
         const { startOfDay, endOfDay } = getStartAndEndOfDay(
           payload?.createdDate,

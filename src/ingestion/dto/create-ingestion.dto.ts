@@ -26,7 +26,7 @@ export class FindIngestionDto extends Pagination {
     description: 'Filter by ingestion type ID',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   ingestionTypeId?: string;
 
   @ApiPropertyOptional({
@@ -34,7 +34,7 @@ export class FindIngestionDto extends Pagination {
     description: 'Filter by content ID',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   contentId?: string;
 
   @ApiPropertyOptional({
@@ -59,7 +59,7 @@ export class CreateIngestionManageDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Ingestion type ID',
   })
-  @IsUUID()
+  @IsString()
   ingestionTypeId: string;
 
   @ApiProperty({
@@ -93,7 +93,7 @@ export class FindIngestionRouteDto extends Pagination {
     description: 'Filter by ingestion type ID',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   ingestionTypeId?: string;
 
   @ApiPropertyOptional({

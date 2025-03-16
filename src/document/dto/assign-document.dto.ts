@@ -7,7 +7,7 @@ export class AssignRoleDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'ID of the assignee',
   })
-  @IsUUID()
+  @IsString()
   assigneeId: string;
 
   @ApiProperty({
@@ -22,7 +22,7 @@ export class AssignRoleDto {
     example: '660e9400-a29c-41d4-b726-556655440abc',
     description: 'ID of the file',
   })
-  @IsUUID()
+  @IsString()
   fileId: string;
 }
 
