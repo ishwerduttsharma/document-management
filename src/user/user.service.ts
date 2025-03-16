@@ -101,7 +101,17 @@ export class UserService {
   async findUser(userId: string) {
     let user;
     try {
-      [user] = await this.db.select().from(users).where(eq(users.id, userId));
+      [user] = await this.db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          platformRole: users.platformRole,
+          createdDate: users.createdDate,
+          updatedDate: users.updatedDate,
+        })
+        .from(users)
+        .where(eq(users.id, userId));
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Error retrieving user',
